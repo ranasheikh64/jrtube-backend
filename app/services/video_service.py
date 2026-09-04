@@ -97,7 +97,7 @@ def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") 
                 import time
                 time.sleep(1)
     
-    raise last_error
+    raise last_error or RuntimeError("All scraping attempts failed with no error captured.")
 
 def resolve_video_service(video_url: str, force_refresh: bool, base_url: str = "http://127.0.0.1:8000") -> VideoData:
     cache_key = f"vid:{video_url}"
