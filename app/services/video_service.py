@@ -27,11 +27,11 @@ def get_cookie_file_path() -> str | None:
 def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") -> dict:
     # Ask for m3u8 formats specifically so we can build a master playlist
     ydl_opts = {
-        'format': 'bestvideo[protocol^=m3u8]+bestaudio[protocol^=m3u8]/best[protocol^=m3u8]/best', 
+        'format': 'bestvideo[protocol^=m3u8]+bestaudio[protocol^=m3u8]/best[protocol^=m3u8]/bestvideo+bestaudio/best', 
         'quiet': True,
         'noplaylist': True,
         'nocheckcertificate': True,
-        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}
+        'extractor_args': {'youtube': {'player_client': ['ios', 'tv', 'web']}}
     }
     
     cookie_file = get_cookie_file_path()
@@ -112,7 +112,7 @@ def get_video_formats(url: str) -> list:
         'quiet': True,
         'noplaylist': True,
         'nocheckcertificate': True,
-        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}
+        'extractor_args': {'youtube': {'player_client': ['ios', 'tv', 'web']}}
     }
     
     cookie_file = get_cookie_file_path()
