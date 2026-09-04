@@ -6,13 +6,17 @@ from app.infrastructure.redis_client import get_cache
 
 router = APIRouter()
 
+from fastapi import APIRouter, HTTPException, Query, Request
+
 @router.get("/resolve", response_model=VideoData)
 async def resolve_video(
+    request: Request,
     video_url: str = Query(..., description="The URL of the video to resolve"),
     force_refresh: bool = Query(False, description="Bypass cache and force a new scrape")
 ):
     try:
-        return resolve_video_service(video_url, force_refresh)
+        base_url = str(request.base_url).rstrip("/")
+        return resolve_video_service(video_url, force_refresh, base_url)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to resolve video: {str(e)}")
 

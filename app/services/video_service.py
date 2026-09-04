@@ -7,7 +7,7 @@ from app.core.config import settings
 
 logger = logging.getLogger("uvicorn.error")
 
-def extract_segmented_stream(url: str) -> dict:
+def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") -> dict:
     # Ask for m3u8 formats specifically so we can build a master playlist
     ydl_opts = {
         'format': 'bestvideo[protocol^=m3u8]+bestaudio[protocol^=m3u8]/best[protocol^=m3u8]/best', 
@@ -46,7 +46,7 @@ def extract_segmented_stream(url: str) -> dict:
 {video_url}
 """
                     set_cache(f"m3u8:{url}", m3u8_content, 7200)
-                    stream_url = f"http://127.0.0.1:8000{settings.API_V1_STR}/videos/master.m3u8?video_url={url}"
+                    stream_url = f"{base_url}{settings.API_V1_STR}/videos/master.m3u8?video_url={url}"
                     is_hls = True
                 else:
                     logger.error("[Scraper] No formats available.")
@@ -63,7 +63,7 @@ def extract_segmented_stream(url: str) -> dict:
             "source_platform": platform
         }
 
-def resolve_video_service(video_url: str, force_refresh: bool) -> VideoData:
+def resolve_video_service(video_url: str, force_refresh: bool, base_url: str = "http://127.0.0.1:8000") -> VideoData:
     cache_key = f"vid:{video_url}"
     logger.info(f"[VideoPlayer] Playback requested for: {video_url} | force_refresh={force_refresh}")
     
@@ -75,7 +75,7 @@ def resolve_video_service(video_url: str, force_refresh: bool) -> VideoData:
             return VideoData(**data_dict)
             
     logger.info(f"[VideoPlayer] Cache MISS or force_refresh is true.")
-    extracted = extract_segmented_stream(video_url)
+    extracted = extract_segmented_stream(video_url, base_url)
     video_data = VideoData(**extracted)
     set_cache(cache_key, video_data.model_dump_json(), settings.CACHE_TTL_SECONDS)
     return video_data
