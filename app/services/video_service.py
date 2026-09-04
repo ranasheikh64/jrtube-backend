@@ -3,6 +3,7 @@ import json
 import logging
 import base64
 import os
+import time
 from app.infrastructure.redis_client import get_cache, set_cache
 from app.domain.schemas import VideoData
 from app.core.config import settings
@@ -28,11 +29,13 @@ def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") 
     # web_embedded is the most reliable client for server-side extraction
     # It doesn't require a JS runtime and is less likely to hit bot checks
     ydl_opts = {
-        'format': 'bestvideo[protocol^=m3u8]+bestaudio[protocol^=m3u8]/best[protocol^=m3u8]/bestvideo+bestaudio/best', 
+        'format': 'bestvideo[protocol^=m3u8]+bestaudio[protocol^=m3u8]/best[protocol^=m3u8]/bestvideo+bestaudio/best',
         'quiet': True,
         'noplaylist': True,
         'nocheckcertificate': True,
-        'extractor_args': {'youtube': {'player_client': ['web_embedded', 'web', 'tv']}}
+        'sleep_interval_requests': 1,
+        # ios & mweb bypass the "page needs to be reloaded" bot check on cloud IPs
+        'extractor_args': {'youtube': {'player_client': ['ios', 'mweb', 'web_embedded']}}
     }
     
     cookie_file = get_cookie_file_path()
@@ -94,8 +97,7 @@ def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") 
             last_error = e
             logger.warning(f"[Scraper] Attempt {attempt}/3 failed: {e}")
             if attempt < 3:
-                import time
-                time.sleep(1)
+                time.sleep(2)
     
     raise last_error or RuntimeError("All scraping attempts failed with no error captured.")
 
