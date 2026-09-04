@@ -25,12 +25,14 @@ def get_cookie_file_path() -> str | None:
         return None
 
 def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") -> dict:
-    # Ask for m3u8 formats specifically so we can build a master playlist
+    # web_embedded is the most reliable client for server-side extraction
+    # It doesn't require a JS runtime and is less likely to hit bot checks
     ydl_opts = {
         'format': 'bestvideo[protocol^=m3u8]+bestaudio[protocol^=m3u8]/best[protocol^=m3u8]/bestvideo+bestaudio/best', 
         'quiet': True,
         'noplaylist': True,
-        'nocheckcertificate': True
+        'nocheckcertificate': True,
+        'extractor_args': {'youtube': {'player_client': ['web_embedded', 'web', 'tv']}}
     }
     
     cookie_file = get_cookie_file_path()
@@ -39,50 +41,63 @@ def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") 
         logger.info("[Scraper] Using YouTube cookies for authentication.")
     
     logger.info(f"[Scraper] Starting yt-dlp extraction for URL: {url}")
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        platform = info.get("extractor_key")
-        
-        manifest_url = info.get("manifest_url")
-        
-        if manifest_url:
-            logger.info("[Scraper] Found native HLS manifest_url from YouTube.")
-            stream_url = manifest_url
-            is_hls = True
-        else:
-            stream_url = info.get("url")
-            if stream_url:
-                logger.info("[Scraper] No manifest_url found. Falling back to pre-merged format.")
-                is_hls = stream_url and ("m3u8" in stream_url or "mpd" in stream_url)
-            else:
-                logger.info("[Scraper] No pre-merged format found. Generating custom master.m3u8.")
-                req_formats = info.get("requested_formats", [])
-                if len(req_formats) >= 2:
-                    video_url = req_formats[0].get("url")
-                    audio_url = req_formats[1].get("url")
-                    
-                    m3u8_content = f"""#EXTM3U
+    
+    # Retry up to 3 times since "page needs to be reloaded" is often transient
+    last_error = None
+    for attempt in range(1, 4):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                platform = info.get("extractor_key")
+                
+                manifest_url = info.get("manifest_url")
+                
+                if manifest_url:
+                    logger.info("[Scraper] Found native HLS manifest_url from YouTube.")
+                    stream_url = manifest_url
+                    is_hls = True
+                else:
+                    stream_url = info.get("url")
+                    if stream_url:
+                        logger.info("[Scraper] No manifest_url found. Falling back to pre-merged format.")
+                        is_hls = stream_url and ("m3u8" in stream_url or "mpd" in stream_url)
+                    else:
+                        logger.info("[Scraper] No pre-merged format found. Generating custom master.m3u8.")
+                        req_formats = info.get("requested_formats", [])
+                        if len(req_formats) >= 2:
+                            video_url = req_formats[0].get("url")
+                            audio_url = req_formats[1].get("url")
+                            
+                            m3u8_content = f"""#EXTM3U
 #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_1",NAME="Default",DEFAULT=YES,AUTOSELECT=YES,URI="{audio_url}"
 #EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720,AUDIO="audio_1"
 {video_url}
 """
-                    set_cache(f"m3u8:{url}", m3u8_content, 7200)
-                    stream_url = f"{base_url}{settings.API_V1_STR}/videos/master.m3u8?video_url={url}"
-                    is_hls = True
-                else:
-                    logger.error("[Scraper] No formats available.")
-                    stream_url = ""
-                    is_hls = False
-            
-        logger.info(f"[Scraper] Successfully extracted stream for {platform}. Is HLS? {is_hls}")
-        
-        return {
-            "title": info.get("title"),
-            "thumbnail": info.get("thumbnail"),
-            "stream_url": stream_url,
-            "is_hls": is_hls,
-            "source_platform": platform
-        }
+                            set_cache(f"m3u8:{url}", m3u8_content, 7200)
+                            stream_url = f"{base_url}{settings.API_V1_STR}/videos/master.m3u8?video_url={url}"
+                            is_hls = True
+                        else:
+                            logger.error("[Scraper] No formats available.")
+                            stream_url = ""
+                            is_hls = False
+                    
+                logger.info(f"[Scraper] Successfully extracted stream for {platform}. Is HLS? {is_hls}")
+                
+                return {
+                    "title": info.get("title"),
+                    "thumbnail": info.get("thumbnail"),
+                    "stream_url": stream_url,
+                    "is_hls": is_hls,
+                    "source_platform": platform
+                }
+        except Exception as e:
+            last_error = e
+            logger.warning(f"[Scraper] Attempt {attempt}/3 failed: {e}")
+            if attempt < 3:
+                import time
+                time.sleep(1)
+    
+    raise last_error
 
 def resolve_video_service(video_url: str, force_refresh: bool, base_url: str = "http://127.0.0.1:8000") -> VideoData:
     cache_key = f"vid:{video_url}"
