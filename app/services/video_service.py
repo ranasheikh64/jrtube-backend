@@ -14,7 +14,7 @@ def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") 
         'quiet': True,
         'noplaylist': True,
         'nocheckcertificate': True,
-        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}
+        'extractor_args': {'youtube': {'player_client': ['ios', 'tv'], 'player_skip': ['webpage', 'configs', 'js']}}
     }
     
     logger.info(f"[Scraper] Starting yt-dlp extraction for URL: {url}")
@@ -90,7 +90,7 @@ def get_video_formats(url: str) -> list:
         'quiet': True,
         'noplaylist': True,
         'nocheckcertificate': True,
-        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}
+        'extractor_args': {'youtube': {'player_client': ['ios', 'tv'], 'player_skip': ['webpage', 'configs', 'js']}}
     }
     
     logger.info(f"[Scraper] Extracting formats for URL: {url}")
