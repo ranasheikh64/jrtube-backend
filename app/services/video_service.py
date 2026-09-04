@@ -31,7 +31,7 @@ def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") 
         'quiet': True,
         'noplaylist': True,
         'nocheckcertificate': True,
-        'extractor_args': {'youtube': {'player_client': ['ios', 'tv'], 'player_skip': ['webpage', 'configs', 'js']}}
+        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}
     }
     
     cookie_file = get_cookie_file_path()
@@ -112,7 +112,7 @@ def get_video_formats(url: str) -> list:
         'quiet': True,
         'noplaylist': True,
         'nocheckcertificate': True,
-        'extractor_args': {'youtube': {'player_client': ['ios', 'tv'], 'player_skip': ['webpage', 'configs', 'js']}}
+        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}
     }
     
     cookie_file = get_cookie_file_path()
