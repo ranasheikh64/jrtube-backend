@@ -1,11 +1,28 @@
 import yt_dlp
 import json
 import logging
+import base64
+import os
 from app.infrastructure.redis_client import get_cache, set_cache
 from app.domain.schemas import VideoData
 from app.core.config import settings
 
 logger = logging.getLogger("uvicorn.error")
+
+def get_cookie_file_path() -> str | None:
+    if not settings.YOUTUBE_COOKIES_BASE64:
+        return None
+    
+    cookie_path = "/tmp/youtube_cookies.txt"
+    try:
+        # Decode base64 to string
+        decoded_bytes = base64.b64decode(settings.YOUTUBE_COOKIES_BASE64)
+        with open(cookie_path, "wb") as f:
+            f.write(decoded_bytes)
+        return cookie_path
+    except Exception as e:
+        logger.error(f"[Cookies] Failed to write cookie file: {e}")
+        return None
 
 def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") -> dict:
     # Ask for m3u8 formats specifically so we can build a master playlist
@@ -16,6 +33,11 @@ def extract_segmented_stream(url: str, base_url: str = "http://127.0.0.1:8000") 
         'nocheckcertificate': True,
         'extractor_args': {'youtube': {'player_client': ['ios', 'tv'], 'player_skip': ['webpage', 'configs', 'js']}}
     }
+    
+    cookie_file = get_cookie_file_path()
+    if cookie_file:
+        ydl_opts['cookiefile'] = cookie_file
+        logger.info("[Scraper] Using YouTube cookies for authentication.")
     
     logger.info(f"[Scraper] Starting yt-dlp extraction for URL: {url}")
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -93,6 +115,10 @@ def get_video_formats(url: str) -> list:
         'extractor_args': {'youtube': {'player_client': ['ios', 'tv'], 'player_skip': ['webpage', 'configs', 'js']}}
     }
     
+    cookie_file = get_cookie_file_path()
+    if cookie_file:
+        ydl_opts['cookiefile'] = cookie_file
+        
     logger.info(f"[Scraper] Extracting formats for URL: {url}")
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
